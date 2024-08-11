@@ -1,10 +1,4 @@
-import {
-  useState,
-  useEffect,
-  createContext,
-  useContext,
-  Children,
-} from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { getCurrentUser } from "../lib/firebase";
 
 const GlobalContext = createContext();
@@ -45,6 +39,7 @@ export const GlobalProvider = ({ children }) => {
         user,
         setUser,
         isLoading,
+        setIsLoading,
       }}
     >
       {children}

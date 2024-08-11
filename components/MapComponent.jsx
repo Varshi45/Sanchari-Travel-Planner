@@ -3,9 +3,9 @@ import { View, Text } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
 const MapComponent = ({ coordinates, foundLocation, mapViewRef }) => {
-  console.log(coordinates);
-  console.log(foundLocation);
-  console.log(mapViewRef);
+  // console.log(coordinates);
+  // console.log(foundLocation);
+  // console.log(mapViewRef);
   return (
     <View className="h-80 mb-4">
       {coordinates ? (

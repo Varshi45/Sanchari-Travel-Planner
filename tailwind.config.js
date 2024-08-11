@@ -5,6 +5,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        button: "#FFC5C5",
         primary: "#D4E7C5",
         secondary: {
           DEFAULT: "#E1F0DA",

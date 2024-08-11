@@ -1,3 +1,5 @@
+// app(tabs)/home.jsx
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -7,42 +9,51 @@ import {
   Alert,
   ScrollView,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useGlobalContext } from "../../context/GlobalProvider";
 import * as Location from "expo-location";
-import { signOutUser, getUsernameByEmail } from "../../lib/firebase";
-import { getLatLong, getPopularDestinations } from "../../lib/gemini";
-import { router } from "expo-router";
+import { getUserDetailsByEmail } from "../../lib/firebase";
+import { getLatLong } from "../../lib/gemini";
 import WeatherInfo from "../../components/WeatherInfo";
-import UserInfo from "../../components/UserInfo";
 import PopularDestinations from "../../components/popularDestinations";
 
 const Home = () => {
-  const { user, setUser, setIsLoggedIn } = useGlobalContext();
+  const { user, isLoading, setIsLoading } = useGlobalContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [foundLocation, setFoundLocation] = useState(null);
   const [coordinates, setCoordinates] = useState(null);
   const [username, setUsername] = useState("");
-  const mapViewRef = useRef(null);
   const [refreshing, setRefreshing] = useState(false);
   const [isMapMoved, setIsMapMoved] = useState(false);
+  const [isLocationReady, setIsLocationReady] = useState(false);
+  const mapViewRef = useRef(null);
 
   const fetchCurrentLocation = async () => {
-    let { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Permission to access location was denied."
-      );
-      return;
-    }
+    setIsLoading(true);
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission Denied",
+          "Permission to access location was denied."
+        );
+        return;
+      }
 
-    let location = await Location.getCurrentPositionAsync({});
-    setCoordinates({
-      latitude: location.coords.latitude,
-      longitude: location.coords.longitude,
-    });
+      let location = await Location.getCurrentPositionAsync({});
+      setCoordinates({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      setIsLocationReady(true); // Set location readiness to true
+    } catch (error) {
+      console.error("Error fetching location:", error.message);
+      Alert.alert("Error", "Unable to fetch current location.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -51,9 +62,9 @@ const Home = () => {
 
   useEffect(() => {
     if (user?.email) {
-      getUsernameByEmail(user.email)
-        .then((username) => {
-          setUsername(username);
+      getUserDetailsByEmail(user.email)
+        .then((res) => {
+          setUsername(res.username);
         })
         .catch((error) => {
           console.error("Error getting username:", error.message);
@@ -61,19 +72,8 @@ const Home = () => {
     }
   }, [user?.email]);
 
-  const handleSignOut = async () => {
-    try {
-      await signOutUser();
-      setUser(null);
-      setIsLoggedIn(false);
-      Alert.alert("Success", "You have signed out successfully.");
-      router.push("/sign-in");
-    } catch (error) {
-      Alert.alert("Error", error.message);
-    }
-  };
-
   const handleSearch = async () => {
+    setIsLoading(true);
     try {
       const newCoordinates = await getLatLong(searchQuery);
       setFoundLocation({
@@ -99,6 +99,8 @@ const Home = () => {
         "Location Not Found",
         `No location found for: ${searchQuery}`
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -107,6 +109,8 @@ const Home = () => {
     await fetchCurrentLocation();
     setSearchQuery("");
     setRefreshing(false);
+    setFoundLocation(null); // Reset found location
+    setIsMapMoved(false); // Reset map movement
   };
 
   const handleRegionChangeComplete = () => {
@@ -133,7 +137,7 @@ const Home = () => {
       }
     >
       <View className="h-[75vh] justify-center items-center mt-4 mb-4">
-        <Text className="text-3xl m-4 font-bold">Welcome, {username}!</Text>
+        <Text className="text-3xl m-4 font-pbold">Welcome, {username}!</Text>
         <TextInput
           className="border w-full border-gray-300 py-2 px-4 mb-4"
           placeholder="Search for a place..."
@@ -142,19 +146,25 @@ const Home = () => {
           onSubmitEditing={handleSearch}
         />
       </View>
-      <WeatherInfo
-        latitude={foundLocation?.coordinates?.latitude || coordinates?.latitude}
-        longitude={
-          foundLocation?.coordinates?.longitude || coordinates?.longitude
-        }
-        title={
-          foundLocation
-            ? `${foundLocation.name}'s Weather`
-            : "Weather in Your Location"
-        }
-      />
+      {isLocationReady && (
+        <WeatherInfo
+          latitude={
+            foundLocation?.coordinates?.latitude || coordinates?.latitude
+          }
+          longitude={
+            foundLocation?.coordinates?.longitude || coordinates?.longitude
+          }
+          title={
+            foundLocation
+              ? `${foundLocation.name}'s Weather`
+              : "Weather in Your Location"
+          }
+        />
+      )}
       <View className="h-80 mb-4">
-        {coordinates ? (
+        {isLoading ? (
+          <ActivityIndicator size="large" color="#FFC5C5" />
+        ) : coordinates ? (
           <MapView
             ref={mapViewRef}
             style={{ flex: 1 }}
@@ -184,11 +194,10 @@ const Home = () => {
             onPress={resetMapToCurrentLocation}
             className="absolute bottom-4 right-4 bg-blue-500 py-2 px-4 rounded-full"
           >
-            <Text className="font-pbold text-black">+</Text>
+            <Text className="text-xl font-pbold text-black">📌</Text>
           </TouchableOpacity>
         )}
       </View>
-      {/* <UserInfo user={user} /> */}
       <PopularDestinations
         latitude={coordinates?.latitude}
         longitude={coordinates?.longitude}
